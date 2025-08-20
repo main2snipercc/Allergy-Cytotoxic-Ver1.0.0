@@ -129,13 +129,32 @@ def get_date_range(start_date, end_date):
 
 
 def format_date_for_display(date_obj):
-    """格式化日期显示"""
+    """格式化日期用于显示"""
     if isinstance(date_obj, str):
-        date_obj = datetime.strptime(date_obj, "%Y-%m-%d").date()
-    elif isinstance(date_obj, datetime):
+        try:
+            date_obj = datetime.strptime(date_obj, "%Y-%m-%d").date()
+        except ValueError:
+            return date_obj
+    
+    if isinstance(date_obj, datetime):
         date_obj = date_obj.date()
     
-    return date_obj.strftime("%Y年%m月%d日")
+    return date_obj.strftime("%Y-%m-%d")
+
+
+def parse_date(date_str):
+    """解析日期字符串为date对象"""
+    if isinstance(date_str, date):
+        return date_str
+    elif isinstance(date_str, datetime):
+        return date_str.date()
+    elif isinstance(date_str, str):
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError(f"无法解析日期字符串: {date_str}")
+    else:
+        raise TypeError(f"不支持的日期类型: {type(date_str)}")
 
 
 def get_next_workday(check_date):
