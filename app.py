@@ -15,12 +15,12 @@ from config.settings import (
 )
 from utils.calendar_utils import (
     get_month_calendar, get_week_calendar, is_workday, get_holiday_info,
-    format_date_for_display
+    format_date_for_display, parse_date
 )
 from utils.schedule_utils import ExperimentScheduler
 from utils.scheduler import (
     start_notification_scheduler, stop_notification_scheduler, 
-    is_scheduler_running, send_manual_notification
+    is_scheduler_running, send_manual_notification, restore_scheduler_state
 )
 from utils.notification import test_notification
 from utils.data_archive import auto_archive_experiments, get_archive_statistics, manual_archive_by_exp_id, manual_archive_by_sample_batch
@@ -1747,6 +1747,24 @@ def main():
     # 加载实验数据
     if not st.session_state.experiments:
         st.session_state.experiments = load_experiments()
+    
+    # 恢复调度器状态（页面刷新后自动恢复）
+    if 'scheduler_restored' not in st.session_state:
+        from utils.scheduler import restore_scheduler_state, start_notification_scheduler
+        from utils.calendar_utils import parse_date, is_workday, get_holiday_info
+        
+        # 检查配置文件中调度器是否应该运行
+        if restore_scheduler_state():
+            # 如果配置文件中显示调度器应该运行，则启动它
+            start_notification_scheduler(
+                st.session_state.experiments,
+                parse_date,
+                is_workday,
+                get_holiday_info
+            )
+            st.session_state.scheduler_restored = True
+        else:
+            st.session_state.scheduler_restored = True
     
     # 侧边栏
     with st.sidebar:

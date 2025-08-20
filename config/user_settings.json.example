@@ -17,5 +17,9 @@
   },
   "scheduling": {
     "adjust_workdays": true
+  },
+  "scheduler": {
+    "running": false,
+    "auto_start": false
   }
 }

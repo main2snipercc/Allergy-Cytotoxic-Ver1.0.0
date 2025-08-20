@@ -2,7 +2,7 @@ import threading
 import time
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Callable
-from config.settings import get_notification_settings, update_notification_settings
+from config.settings import get_notification_settings, update_notification_settings, update_scheduler_settings
 from utils.notification import send_daily_report
 
 
@@ -35,6 +35,9 @@ class NotificationScheduler:
         self.running = True
         self.stop_event.clear()
         
+        # 持久化调度器状态
+        update_scheduler_settings(running=True)
+        
         self.thread = threading.Thread(
             target=self._run_scheduler,
             daemon=True
@@ -49,6 +52,9 @@ class NotificationScheduler:
         
         self.running = False
         self.stop_event.set()
+        
+        # 持久化调度器状态
+        update_scheduler_settings(running=False)
         
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=5)
@@ -185,3 +191,9 @@ def update_scheduler_experiments(experiments: List[Dict[str, Any]]):
 def send_manual_notification(notification_type: str = "daily"):
     """手动发送今日实验内容"""
     return _scheduler.send_manual_notification(notification_type)
+
+
+def restore_scheduler_state():
+    """从配置文件恢复调度器状态"""
+    from config.settings import is_scheduler_enabled
+    return is_scheduler_enabled()

@@ -73,6 +73,10 @@ DEFAULT_SETTINGS = {
     },
     "scheduling": {
         "adjust_workdays": True  # 是否自动调整到工作日
+    },
+    "scheduler": {
+        "running": False,  # 调度器运行状态
+        "auto_start": False  # 是否自动启动调度器
     }
 }
 
@@ -223,3 +227,30 @@ def update_settings(new_settings):
     except Exception as e:
         print(f"更新配置文件失败: {e}")
         return False
+
+
+def get_scheduler_settings():
+    """获取调度器相关设置"""
+    settings = load_settings()
+    return settings.get("scheduler", DEFAULT_SETTINGS["scheduler"])
+
+
+def update_scheduler_settings(running=None, auto_start=None):
+    """更新调度器设置"""
+    settings = load_settings()
+    scheduler = settings.get("scheduler", DEFAULT_SETTINGS["scheduler"].copy())
+    
+    if running is not None:
+        scheduler["running"] = running
+    if auto_start is not None:
+        scheduler["auto_start"] = auto_start
+    
+    settings["scheduler"] = scheduler
+    return save_settings(settings)
+
+
+def is_scheduler_enabled():
+    """检查调度器是否已启用（基于配置）"""
+    settings = load_settings()
+    scheduler = settings.get("scheduler", DEFAULT_SETTINGS["scheduler"])
+    return scheduler.get("running", False)
