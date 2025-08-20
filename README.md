@@ -61,7 +61,7 @@
 
 ### 项目结构
 ```
-allergy-cytotoxic/
+Allergy-Cytotoxic-Ver1.0.0/
 ├── app.py                 # 主应用程序
 ├── config/               # 配置模块
 │   ├── __init__.py
