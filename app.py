@@ -1708,19 +1708,23 @@ def render_notification_settings():
     
     with col1:
         if st.button("启动调度器"):
-            if not st.session_state.scheduler_started:
+            from utils.scheduler import is_scheduler_running
+            if not is_scheduler_running():
                 start_notification_scheduler(st.session_state.experiments)
                 st.session_state.scheduler_started = True
                 st.success("调度器已启动")
+                st.rerun()
             else:
                 st.info("调度器已在运行中")
     
     with col2:
         if st.button("停止调度器"):
-            if st.session_state.scheduler_started:
+            from utils.scheduler import is_scheduler_running
+            if is_scheduler_running():
                 stop_notification_scheduler()
                 st.session_state.scheduler_started = False
                 st.success("调度器已停止")
+                st.rerun()
             else:
                 st.info("调度器未在运行")
     
@@ -1736,7 +1740,9 @@ def render_notification_settings():
                 st.warning("⚠️ 暂无实验数据可发送")
     
     # 显示调度器状态
-    status = "运行中" if st.session_state.scheduler_started else "已停止"
+    from utils.scheduler import is_scheduler_running
+    actual_scheduler_status = is_scheduler_running()
+    status = "运行中" if actual_scheduler_status else "已停止"
     st.info(f"调度器状态: {status}")
 
 def main():
@@ -1750,7 +1756,7 @@ def main():
     
     # 恢复调度器状态（页面刷新后自动恢复）
     if 'scheduler_restored' not in st.session_state:
-        from utils.scheduler import restore_scheduler_state, start_notification_scheduler
+        from utils.scheduler import restore_scheduler_state, start_notification_scheduler, is_scheduler_running
         from utils.calendar_utils import parse_date, is_workday, get_holiday_info
         
         # 检查配置文件中调度器是否应该运行
@@ -1762,9 +1768,18 @@ def main():
                 is_workday,
                 get_holiday_info
             )
+            st.session_state.scheduler_started = True
             st.session_state.scheduler_restored = True
         else:
+            st.session_state.scheduler_started = False
             st.session_state.scheduler_restored = True
+    
+    # 确保session_state与真实状态同步
+    if 'scheduler_restored' in st.session_state:
+        from utils.scheduler import is_scheduler_running
+        actual_status = is_scheduler_running()
+        if st.session_state.scheduler_started != actual_status:
+            st.session_state.scheduler_started = actual_status
     
     # 侧边栏
     with st.sidebar:
@@ -1982,7 +1997,11 @@ def main():
             st.info(f"Python版本: {st.get_option('server.enableCORS')}")
             st.info(f"Streamlit版本: {st.__version__}")
             st.info(f"数据文件: {EXPERIMENTS_FILE}")
-            st.info(f"调度器状态: {'运行中' if st.session_state.scheduler_started else '已停止'}")
+            
+            # 显示真正的调度器状态
+            from utils.scheduler import is_scheduler_running
+            actual_scheduler_status = is_scheduler_running()
+            st.info(f"调度器状态: {'运行中' if actual_scheduler_status else '已停止'}")
             
             # 数据归档统计
             st.markdown("---")
