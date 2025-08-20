@@ -1,6 +1,6 @@
 [project]
 name = "allergy-cytotoxic"
-version = "1.0.0"
+version = "1.2.0"
 description = "细胞毒实验排班系统 - 基于Streamlit的可视化交互排班工具"
 readme = "README.md"
 requires-python = ">=3.11"
