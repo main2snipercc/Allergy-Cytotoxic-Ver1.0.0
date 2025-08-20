@@ -101,7 +101,7 @@ allergy-cytotoxic/
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd allergy-cytotoxic
+cd Allergy-Cytotoxic-Ver1.0.0
 
 # 安装依赖
 uv sync
@@ -114,7 +114,7 @@ uv run streamlit run app.py
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd allergy-cytotoxic
+cd Allergy-Cytotoxic-Ver1.0.0
 
 # 安装依赖
 pip install -r requirements.txt
