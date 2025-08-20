@@ -54,16 +54,38 @@ log_info "Python版本: $PYTHON_VERSION"
 
 # 检查uv是否安装
 if ! command -v uv &> /dev/null; then
-    log_error "uv未安装，正在安装uv..."
+    log_info "uv未安装，正在安装uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    source ~/.bashrc
-    if ! command -v uv &> /dev/null; then
-        log_error "uv安装失败，请手动安装"
-        exit 1
+    
+    # 更新PATH环境变量
+    export PATH="$HOME/.local/bin:$PATH"
+    
+    # 重新加载环境变量
+    if [ -f "$HOME/.bashrc" ]; then
+        source "$HOME/.bashrc"
     fi
+    
+    # 再次检查uv是否可用
+    if ! command -v uv &> /dev/null; then
+        log_error "uv安装后仍无法识别，尝试手动添加到PATH..."
+        export PATH="$HOME/.local/bin:$PATH"
+        
+        # 如果还是不行，尝试直接使用完整路径
+        if [ -f "$HOME/.local/bin/uv" ]; then
+            log_warning "使用完整路径访问uv: $HOME/.local/bin/uv"
+            UV_CMD="$HOME/.local/bin/uv"
+        else
+            log_error "uv安装失败，请手动安装"
+            exit 1
+        fi
+    else
+        UV_CMD="uv"
+        log_success "uv已安装: $(uv --version)"
+    fi
+else
+    UV_CMD="uv"
+    log_success "uv已安装: $(uv --version)"
 fi
-
-log_success "uv已安装: $(uv --version)"
 
 # 检查Node.js和PM2
 if ! command -v node &> /dev/null; then
@@ -88,7 +110,11 @@ mkdir -p data/archive
 log_info "配置uv环境..."
 if [ ! -d ".venv" ]; then
     log_info "创建虚拟环境..."
-    uv venv
+    if [ "$UV_CMD" = "uv" ]; then
+        uv venv
+    else
+        $UV_CMD venv
+    fi
 fi
 
 # 激活虚拟环境
@@ -96,7 +122,11 @@ source .venv/bin/activate
 
 # 4. 安装依赖
 log_info "安装Python依赖..."
-uv sync
+if [ "$UV_CMD" = "uv" ]; then
+    uv sync
+else
+    $UV_CMD sync
+fi
 
 # 5. 检查配置文件
 log_info "检查配置文件..."
