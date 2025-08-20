@@ -96,12 +96,8 @@ allergy-cytotoxic/
 
 ### 🚀 快速启动（推荐）
 
-#### 方法1: 使用批处理文件（Windows）
-1. 双击 `run.bat` 文件
-2. 等待系统启动
-3. 浏览器会自动打开应用程序
 
-#### 方法2: 使用uv包管理器
+#### 方法1: 使用uv包管理器
 ```bash
 # 克隆项目
 git clone <repository-url>
@@ -114,7 +110,7 @@ uv sync
 uv run streamlit run app.py
 ```
 
-#### 方法3: 使用pip
+#### 方法2: 使用pip
 ```bash
 # 克隆项目
 git clone <repository-url>
