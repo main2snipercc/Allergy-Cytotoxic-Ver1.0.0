@@ -1,0 +1,22 @@
+# 细胞毒实验排班系统 - 依赖包列表
+
+# 核心框架
+streamlit>=1.28.0          # Web应用框架
+
+# 数据处理
+pandas>=2.0.0              # 数据分析和处理
+openpyxl>=3.1.0            # Excel文件支持
+
+# 可视化和图表
+plotly>=5.15.0             # 交互式图表
+
+# 日期和节假日
+chinesecalendar>=1.10.0    # 中国节假日和调休数据
+
+# 网络请求（消息推送）
+requests>=2.28.0           # HTTP请求（企业微信推送）
+
+# 注意事项：
+# 1. 使用 uv add 命令安装依赖：uv add streamlit pandas chinesecalendar requests openpyxl plotly
+# 2. 或者使用 pip install -r requirements.txt
+# 3. chinesecalendar库支持的年份范围通常是2004-2025，可能需要定期更新

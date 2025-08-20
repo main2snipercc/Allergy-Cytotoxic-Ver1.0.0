@@ -1,0 +1,6 @@
+@echo off
+echo 启动细胞毒实验排班系统...
+echo.
+echo 正在启动Streamlit应用...
+uv run streamlit run app.py
+pause

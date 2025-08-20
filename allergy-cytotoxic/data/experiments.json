@@ -1,0 +1,52 @@
+[
+  {
+    "method_name": "7天计数增值度法",
+    "start_date": "2025-09-04",
+    "end_date": "2025-09-12",
+    "sample_batch": "25081717",
+    "notes": "",
+    "steps": [
+      {
+        "step_name": "上样",
+        "description": "第一天上样",
+        "relative_day": 1,
+        "scheduled_date": "2025-09-04",
+        "is_workday": true,
+        "date_str": "2025-09-04"
+      },
+      {
+        "step_name": "换液",
+        "description": "第二天换液",
+        "relative_day": 2,
+        "scheduled_date": "2025-09-05",
+        "is_workday": true,
+        "date_str": "2025-09-05"
+      },
+      {
+        "step_name": "2天计数",
+        "description": "第四天2天计数",
+        "relative_day": 4,
+        "scheduled_date": "2025-09-08",
+        "is_workday": true,
+        "date_str": "2025-09-08"
+      },
+      {
+        "step_name": "4天计数",
+        "description": "第六天4天计数",
+        "relative_day": 6,
+        "scheduled_date": "2025-09-09",
+        "is_workday": true,
+        "date_str": "2025-09-09"
+      },
+      {
+        "step_name": "7天计数",
+        "description": "第九天7天计数",
+        "relative_day": 9,
+        "scheduled_date": "2025-09-12",
+        "is_workday": true,
+        "date_str": "2025-09-12"
+      }
+    ],
+    "total_days": 9
+  }
+]
