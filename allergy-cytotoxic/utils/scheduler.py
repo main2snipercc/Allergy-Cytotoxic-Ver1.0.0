@@ -3,7 +3,7 @@ import time
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Callable
 from config.settings import get_notification_settings, update_notification_settings
-from utils.notification import send_daily_report, send_upcoming_reminder
+from utils.notification import send_daily_report
 
 
 class NotificationScheduler:
@@ -139,17 +139,15 @@ class NotificationScheduler:
         try:
             if notification_type == "daily":
                 success = send_daily_report(self.experiments_data)
-            elif notification_type == "upcoming":
-                success = send_upcoming_reminder(self.experiments_data)
             else:
                 print(f"不支持的通知类型: {notification_type}")
                 return False
             
             if success:
-                print(f"✅ {notification_type}通知发送成功")
+                print(f"✅ 今日实验内容发送成功")
                 return True
             else:
-                print(f"❌ {notification_type}通知发送失败")
+                print(f"❌ 今日实验内容发送失败")
                 return False
                 
         except Exception as e:
@@ -185,5 +183,5 @@ def update_scheduler_experiments(experiments: List[Dict[str, Any]]):
 
 
 def send_manual_notification(notification_type: str = "daily"):
-    """手动发送通知"""
+    """手动发送今日实验内容"""
     return _scheduler.send_manual_notification(notification_type)

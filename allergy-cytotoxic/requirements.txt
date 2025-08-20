@@ -1,4 +1,6 @@
 # 细胞毒实验排班系统 - 依赖包列表
+# 版本: v1.1.0
+# 更新日期: 2025-01-14
 
 # 核心框架
 streamlit>=1.28.0          # Web应用框架
@@ -16,7 +18,17 @@ chinesecalendar>=1.10.0    # 中国节假日和调休数据
 # 网络请求（消息推送）
 requests>=2.28.0           # HTTP请求（企业微信推送）
 
+# 数据压缩和归档
+gzip                        # 内置模块，用于数据压缩
+
 # 注意事项：
 # 1. 使用 uv add 命令安装依赖：uv add streamlit pandas chinesecalendar requests openpyxl plotly
 # 2. 或者使用 pip install -r requirements.txt
 # 3. chinesecalendar库支持的年份范围通常是2004-2025，可能需要定期更新
+# 4. gzip模块为Python内置模块，无需额外安装
+
+# 新功能说明：
+# - 智能数据归档：自动归档过期实验数据（默认180天）
+# - 归档数据查询：支持查询已归档的历史实验数据
+# - 实验序号聚合：按实验序号聚合显示，避免重复信息
+# - 强制归档搜索：用户可手动控制是否搜索归档数据

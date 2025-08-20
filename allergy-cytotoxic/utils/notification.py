@@ -114,51 +114,202 @@ class WeChatNotifier:
         else:
             title = f"⚠️ 紧急实验提醒 ({today.strftime('%Y年%m月%d日')})"
         
-        # 构建markdown内容
-        content = f"## {title}\n\n"
-        
-        # 按日期分组
-        daily_tasks = {}
-        for exp in experiments:
-            for step in exp["steps"]:
-                date_key = step["date_str"]
-                if date_key not in daily_tasks:
-                    daily_tasks[date_key] = []
-                daily_tasks[date_key].append({
-                    "sample_batch": exp["sample_batch"],
-                    "method_name": exp["method_name"],
-                    "step_name": step["step_name"],
-                    "description": step["description"]
-                })
-        
-        # 按日期排序
-        sorted_dates = sorted(daily_tasks.keys())
-        
-        for date_str in sorted_dates:
-            tasks = daily_tasks[date_str]
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+        # 专门处理当天实验内容
+        if reminder_type == "daily":
+            # 只显示今天的实验
+            today_tasks = []
+            for exp in experiments:
+                for step in exp["steps"]:
+                    if step.get("date_str"):
+                        date_obj = datetime.strptime(step["date_str"], "%Y-%m-%d").date()
+                        if date_obj == today:
+                            today_tasks.append({
+                                "sample_batch": exp["sample_batch"],
+                                "method_name": exp["method_name"],
+                                "step_name": step["step_name"],
+                                "description": step["description"],
+                                "start_date": exp.get("start_date", ""),
+                                "end_date": exp.get("end_date", "")
+                            })
             
-            if reminder_type == "daily" and date_obj != today:
-                continue
-            
-            # 计算距离今天的天数
-            days_diff = (date_obj - today).days
-            if days_diff == 0:
-                date_display = "**今天**"
-            elif days_diff == 1:
-                date_display = "**明天**"
-            elif days_diff > 1:
-                date_display = f"**{days_diff}天后**"
+            if not today_tasks:
+                content = f"## {title}\n\n"
+                content += "**今日暂无实验安排**\n\n"
+                content += "🎉 今天可以休息一下，或者安排其他工作。"
+                return self.send_markdown_message(content)
             else:
-                date_display = f"**{abs(days_diff)}天前**"
+                # 分批发送通知
+                return self._send_daily_tasks_in_batches(title, today_tasks)
+        else:
+            # 处理其他类型的提醒（保持原有逻辑）
+            content = f"## {title}\n\n"
             
-            content += f"### {date_display} ({date_str})\n\n"
+            daily_tasks = {}
+            for exp in experiments:
+                for step in exp["steps"]:
+                    date_key = step["date_str"]
+                    if date_key not in daily_tasks:
+                        daily_tasks[date_key] = []
+                    daily_tasks[date_key].append({
+                        "sample_batch": exp["sample_batch"],
+                        "method_name": exp["method_name"],
+                        "step_name": step["step_name"],
+                        "description": step["description"]
+                    })
             
-            for task in tasks:
-                content += f"- **{task['sample_batch']}** ({task['method_name']})\n"
-                content += f"  - {task['step_name']}: {task['description']}\n\n"
+            # 按日期排序
+            sorted_dates = sorted(daily_tasks.keys())
+            
+            for date_str in sorted_dates:
+                tasks = daily_tasks[date_str]
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                
+                # 计算距离今天的天数
+                days_diff = (date_obj - today).days
+                if days_diff == 0:
+                    date_display = "**今天**"
+                elif days_diff == 1:
+                    date_display = "**明天**"
+                elif days_diff > 1:
+                    date_display = f"**{days_diff}天后**"
+                else:
+                    date_display = f"**{abs(days_diff)}天前**"
+                
+                content += f"### {date_display} ({date_str})\n\n"
+                
+                for task in tasks:
+                    content += f"- **{task['sample_batch']}** ({task['method_name']})\n"
+                    content += f"  - {task['step_name']}: {task['description']}\n\n"
+            
+            return self.send_markdown_message(content)
+    
+    def _send_daily_tasks_in_batches(self, title: str, today_tasks: List[Dict[str, Any]]) -> bool:
+        """
+        分批发送每日实验任务
         
-        return self.send_markdown_message(content)
+        Args:
+            title: 消息标题
+            today_tasks: 今日实验任务列表
+        
+        Returns:
+            是否全部发送成功
+        """
+        try:
+            # 企业微信消息长度限制（约2048字符，留一些余量）
+            MAX_MESSAGE_LENGTH = 2000
+            
+            # 按样本批次分组
+            batch_groups = {}
+            for task in today_tasks:
+                batch = task["sample_batch"]
+                if batch not in batch_groups:
+                    batch_groups[batch] = []
+                batch_groups[batch].append(task)
+            
+            # 计算总任务数
+            total_tasks = len(today_tasks)
+            
+            # 如果任务数量很少，直接发送一条消息
+            if total_tasks <= 3:
+                content = f"## {title}\n\n"
+                content += f"**今日共有 {total_tasks} 个实验步骤需要执行：**\n\n"
+                
+                for batch, tasks in batch_groups.items():
+                    content += f"### 🧪 样本批次: {batch}\n\n"
+                    for task in tasks:
+                        content += f"**实验方法**: {task['method_name']}\n"
+                        content += f"**实验步骤**: {task['step_name']}\n"
+                        content += f"**详细说明**: {task['description']}\n"
+                        if task.get("start_date") and task.get("end_date"):
+                            content += f"**实验周期**: {task['start_date']} 至 {task['end_date']}\n"
+                        content += "\n"
+                
+                return self.send_markdown_message(content)
+            
+            # 任务数量较多，分批发送
+            batch_count = 0
+            success_count = 0
+            
+            # 发送第一条消息（概览）
+            overview_content = f"## {title}\n\n"
+            overview_content += f"**今日共有 {total_tasks} 个实验步骤需要执行**\n\n"
+            overview_content += f"**样本批次数量**: {len(batch_groups)}\n\n"
+            overview_content += "📋 详细内容将分批发送..."
+            
+            if self.send_markdown_message(overview_content):
+                success_count += 1
+            
+            # 分批发送详细内容
+            current_batch_content = ""
+            current_batch_count = 0
+            
+            for batch, tasks in batch_groups.items():
+                batch_content = f"### 🧪 样本批次: {batch}\n\n"
+                
+                for task in tasks:
+                    task_content = f"**实验方法**: {task['method_name']}\n"
+                    task_content += f"**实验步骤**: {task['step_name']}\n"
+                    task_content += f"**详细说明**: {task['description']}\n"
+                    if task.get("start_date") and task.get("end_date"):
+                        task_content += f"**实验周期**: {task['start_date']} 至 {task['end_date']}\n"
+                    task_content += "\n"
+                    
+                    # 检查是否超出长度限制
+                    if len(current_batch_content + batch_content + task_content) > MAX_MESSAGE_LENGTH:
+                        # 发送当前批次
+                        if current_batch_content.strip():
+                            batch_title = f"## {title} - 第{batch_count + 1}部分\n\n"
+                            full_content = batch_title + current_batch_content
+                            
+                            if self.send_markdown_message(full_content):
+                                success_count += 1
+                                batch_count += 1
+                        
+                        # 开始新的批次
+                        current_batch_content = batch_content + task_content
+                        current_batch_count = 1
+                    else:
+                        current_batch_content += batch_content + task_content
+                        current_batch_count += 1
+                
+                # 检查是否需要发送当前批次
+                if len(current_batch_content) > MAX_MESSAGE_LENGTH * 0.8:  # 80%阈值
+                    batch_title = f"## {title} - 第{batch_count + 1}部分\n\n"
+                    full_content = batch_title + current_batch_content
+                    
+                    if self.send_markdown_message(full_content):
+                        success_count += 1
+                        batch_count += 1
+                    
+                    current_batch_content = ""
+                    current_batch_count = 0
+            
+            # 发送最后一批（如果有剩余内容）
+            if current_batch_content.strip():
+                batch_title = f"## {title} - 第{batch_count + 1}部分\n\n"
+                full_content = batch_title + current_batch_content
+                
+                if self.send_markdown_message(full_content):
+                    success_count += 1
+                    batch_count += 1
+            
+            # 发送完成消息
+            if batch_count > 1:
+                completion_content = f"## {title} - 发送完成\n\n"
+                completion_content += f"✅ 今日实验内容已全部发送完成\n\n"
+                completion_content += f"📊 发送统计：\n"
+                completion_content += f"- 总任务数：{total_tasks}\n"
+                completion_content += f"- 分批数量：{batch_count}\n"
+                completion_content += f"- 成功发送：{success_count}\n"
+                
+                self.send_markdown_message(completion_content)
+            
+            # 返回是否全部发送成功
+            return success_count >= batch_count
+            
+        except Exception as e:
+            print(f"分批发送通知时出错: {e}")
+            return False
     
     def test_connection(self) -> tuple[bool, str]:
         """
@@ -208,21 +359,7 @@ def send_daily_report(experiments: List[Dict[str, Any]]) -> bool:
     return notifier.send_experiment_reminder(experiments, "daily")
 
 
-def send_upcoming_reminder(experiments: List[Dict[str, Any]]) -> bool:
-    """
-    发送即将到来的实验提醒
-    
-    Args:
-        experiments: 实验列表
-    
-    Returns:
-        是否发送成功
-    """
-    notifier = create_notifier()
-    if not notifier:
-        return False
-    
-    return notifier.send_experiment_reminder(experiments, "upcoming")
+
 
 
 def send_urgent_reminder(experiments: List[Dict[str, Any]]) -> bool:

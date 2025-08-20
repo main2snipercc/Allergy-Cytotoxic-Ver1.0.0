@@ -1,0 +1,79 @@
+# 细胞毒实验排班系统 - Git忽略文件
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+temp/
+tmp/
+
+# 数据文件（包含敏感信息）
+# 注意：这些文件包含实验数据，不应提交到版本控制
+data/experiments.json
+data/archive/*.json.gz
+
+# 配置文件（包含敏感信息）
+# 注意：user_settings.json包含webhook等敏感信息
+config/user_settings.json
+
+# 但是保留配置文件模板
+!config/user_settings.json.example
+
+# 其他
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json

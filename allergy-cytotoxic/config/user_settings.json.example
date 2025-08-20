@@ -1,0 +1,21 @@
+{
+  "notification": {
+    "enabled": true,
+    "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_WEBHOOK_KEY_HERE",
+    "push_time": "08:00",
+    "last_push_date": "",
+    "reminder_days": [
+      1,
+      2,
+      3
+    ]
+  },
+  "display": {
+    "show_weekends": false,
+    "highlight_today": true,
+    "color_scheme": "default"
+  },
+  "scheduling": {
+    "adjust_workdays": true
+  }
+}

@@ -11,46 +11,49 @@ CONFIG_FILE = CONFIG_DIR / "user_settings.json"
 CYTOTOXIC_METHODS = {
     "7天计数增值度法": {
         "name": "7天计数增值度法",
+        "adjustable": False,  # 不能调整
         "steps": [
-            {"day": 1, "action": "上样", "description": "第一天上样"},
-            {"day": 2, "action": "换液", "description": "第二天换液"},
-            {"day": 4, "action": "2天计数", "description": "第四天2天计数"},
-            {"day": 6, "action": "4天计数", "description": "第六天4天计数"},
-            {"day": 9, "action": "7天计数", "description": "第九天7天计数"}
+            {"day": 1, "action": "上样", "description": "第一天上样", "adjustable": False},
+            {"day": 2, "action": "换液", "description": "第二天换液", "adjustable": False},
+            {"day": 4, "action": "2天计数", "description": "第四天2天计数", "adjustable": False},
+            {"day": 6, "action": "4天计数", "description": "第六天4天计数", "adjustable": False},
+            {"day": 9, "action": "7天计数", "description": "第九天7天计数", "adjustable": False}
         ]
     },
     "USP显微镜法": {
         "name": "USP显微镜法",
+        "adjustable": False,  # 不能调整
         "steps": [
-            {"day": 1, "action": "上样", "description": "第一天上样"},
-            {"day": 2, "action": "换液", "description": "第二天换液"},
-            {"day": 4, "action": "2天观察", "description": "第四天2天观察"}
+            {"day": 1, "action": "上样", "description": "第一天上样", "adjustable": False},
+            {"day": 2, "action": "换液", "description": "第二天换液", "adjustable": False},
+            {"day": 4, "action": "2天观察", "description": "第四天2天观察", "adjustable": False}
         ]
     },
     "MTT-GB14233.2": {
         "name": "MTT-GB14233.2",
+        "adjustable": False,  # 不能调整
         "steps": [
-            {"day": 1, "action": "上样", "description": "第一天上样"},
-            {"day": 2, "action": "换液", "description": "第二天换液"},
-            {"day": 5, "action": "观察MTT结果", "description": "第五天观察MTT结果"}
+            {"day": 1, "action": "上样", "description": "第一天上样", "adjustable": False},
+            {"day": 2, "action": "换液", "description": "第二天换液", "adjustable": False},
+            {"day": 5, "action": "观察MTT结果", "description": "第五天观察MTT结果", "adjustable": False}
         ]
     },
     "MTT-ISO等同16886": {
         "name": "MTT-ISO等同16886",
+        "adjustable": False,  # 不能调整
         "steps": [
-            {"day": 1, "action": "上样", "description": "第一天上样"},
-            {"day": 2, "action": "换液", "description": "第二天换液"},
-            {"day": 3, "action": "观察MTT结果", "description": "第三天观察MTT结果"}
+            {"day": 1, "action": "上样", "description": "第一天上样", "adjustable": False},
+            {"day": 2, "action": "换液", "description": "第二天换液", "adjustable": False},
+            {"day": 3, "action": "观察MTT结果", "description": "第三天观察MTT结果", "adjustable": False}
         ]
     },
     "日本药局方": {
         "name": "日本药局方",
+        "adjustable": True,  # 可以调整
         "steps": [
-            {"day": 1, "action": "上样", "description": "第一天上样"},
-            {"day": 2, "action": "换液", "description": "第二天换液"},
-            {"day": 9, "action": "计数", "description": "第九天计数（可选9-11天）"},
-            {"day": 10, "action": "计数", "description": "第十天计数（可选9-11天）"},
-            {"day": 11, "action": "计数", "description": "第十一天计数（可选9-11天）"}
+            {"day": 1, "action": "上样", "description": "第一天上样", "adjustable": False},  # 前2天不能调整
+            {"day": 2, "action": "换液", "description": "第二天换液", "adjustable": False},  # 前2天不能调整
+            {"day": 9, "action": "计数", "description": "第9-11天选择一天计数", "adjustable": True, "flexible_days": [9, 10, 11]}  # 最后1天在9-11天中选择
         ]
     }
 }
@@ -61,13 +64,15 @@ DEFAULT_SETTINGS = {
         "enabled": False,
         "webhook_url": "",
         "push_time": "08:00",
-        "last_push_date": "",
-        "reminder_days": [1, 2, 3]  # 提前提醒的天数
+        "last_push_date": ""
     },
     "display": {
         "show_weekends": False,
         "highlight_today": True,
         "color_scheme": "default"
+    },
+    "scheduling": {
+        "adjust_workdays": True  # 是否自动调整到工作日
     }
 }
 
@@ -126,7 +131,7 @@ def get_notification_settings():
 
 
 def update_notification_settings(enabled=None, webhook_url=None, push_time=None, 
-                               last_push_date=None, reminder_days=None):
+                               last_push_date=None):
     """更新通知设置"""
     settings = load_settings()
     notification = settings.get("notification", DEFAULT_SETTINGS["notification"].copy())
@@ -139,8 +144,6 @@ def update_notification_settings(enabled=None, webhook_url=None, push_time=None,
         notification["push_time"] = push_time
     if last_push_date is not None:
         notification["last_push_date"] = last_push_date
-    if reminder_days is not None:
-        notification["reminder_days"] = reminder_days
     
     settings["notification"] = notification
     return save_settings(settings)
@@ -196,3 +199,27 @@ def get_cytotoxic_methods():
 def get_method_steps(method_name):
     """获取指定方法的实验步骤"""
     return CYTOTOXIC_METHODS.get(method_name, {}).get("steps", [])
+
+
+def update_settings(new_settings):
+    """更新用户设置"""
+    ensure_config_dir()
+    
+    try:
+        # 加载现有设置
+        current_settings = load_settings()
+        
+        # 合并新设置
+        for key, value in new_settings.items():
+            if key in current_settings and isinstance(current_settings[key], dict) and isinstance(value, dict):
+                current_settings[key].update(value)
+            else:
+                current_settings[key] = value
+        
+        # 保存到文件
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(current_settings, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"更新配置文件失败: {e}")
+        return False

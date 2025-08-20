@@ -36,21 +36,96 @@ class ExperimentScheduler:
         
         # 计算每个步骤的日期
         schedule_steps = []
-        for step in steps:
-            step_date = start_date + timedelta(days=step["day"] - 1)
-            
-            # 如果步骤日期是周末或节假日，调整到下一个工作日
-            if not is_workday(step_date):
-                step_date = get_next_workday(step_date)
-            
-            schedule_steps.append({
-                "step_name": step["action"],
-                "description": step["description"],
-                "relative_day": step["day"],
-                "scheduled_date": step_date,
-                "is_workday": is_workday(step_date),
-                "date_str": step_date.strftime("%Y-%m-%d")
-            })
+        
+        # 获取配置
+        from config.settings import load_settings
+        settings = load_settings()
+        adjust_workdays = settings.get("scheduling", {}).get("adjust_workdays", True)
+        
+        # 检查该方法是否允许调整
+        method_adjustable = method_info.get("adjustable", False)
+        
+        if adjust_workdays and method_adjustable:
+            # 该方法允许调整，按照规则处理
+            if method_name == "日本药局方":
+                # 日本药局方特殊处理：前2天不能调整，最后1天在9-11天中选择非休息日
+                for step in steps:
+                    if step.get("flexible_days"):
+                        # 处理灵活日期步骤（如9-11天计数）
+                        # 在flexible_days范围内找到第一个非休息日
+                        best_date = None
+                        best_day = None
+                        
+                        for day in step["flexible_days"]:
+                            test_date = start_date + timedelta(days=day - 1)
+                            if is_workday(test_date):
+                                best_date = test_date
+                                best_day = day
+                                break
+                        
+                        # 如果9-11天都是休息日，选择第9天（原始日期）
+                        if best_date is None:
+                            best_date = start_date + timedelta(days=step["day"] - 1)
+                            best_day = step["day"]
+                        
+                        schedule_steps.append({
+                            "step_name": step["action"],
+                            "description": f"第{best_day}天{step['action']}",
+                            "relative_day": best_day,
+                            "scheduled_date": best_date,
+                            "is_workday": is_workday(best_date),
+                            "date_str": best_date.strftime("%Y-%m-%d"),
+                            "original_date": (start_date + timedelta(days=step["day"] - 1)).strftime("%Y-%m-%d"),
+                            "was_adjusted": best_date != (start_date + timedelta(days=step["day"] - 1))
+                        })
+                    else:
+                        # 处理固定日期步骤（如第1、2天）
+                        step_date = start_date + timedelta(days=step["day"] - 1)
+                        
+                        schedule_steps.append({
+                            "step_name": step["action"],
+                            "description": step["description"],
+                            "relative_day": step["day"],
+                            "scheduled_date": step_date,
+                            "is_workday": is_workday(step_date),
+                            "date_str": step_date.strftime("%Y-%m-%d"),
+                            "original_date": step_date.strftime("%Y-%m-%d"),
+                            "was_adjusted": False
+                        })
+            else:
+                # 其他可调整方法（目前没有）
+                for step in steps:
+                    step_date = start_date + timedelta(days=step["day"] - 1)
+                    original_step_date = step_date
+                    
+                    if step.get("adjustable", False) and not is_workday(step_date):
+                        step_date = get_next_workday(step_date)
+                    
+                    schedule_steps.append({
+                        "step_name": step["action"],
+                        "description": step["description"],
+                        "relative_day": step["day"],
+                        "scheduled_date": step_date,
+                        "is_workday": is_workday(step_date),
+                        "date_str": step_date.strftime("%Y-%m-%d"),
+                        "original_date": original_step_date.strftime("%Y-%m-%d"),
+                        "was_adjusted": step_date != original_step_date
+                    })
+        else:
+            # 该方法不允许调整，严格按照原始日期执行
+            for step in steps:
+                step_date = start_date + timedelta(days=step["day"] - 1)
+                
+                schedule_steps.append({
+                    "step_name": step["action"],
+                    "description": step["description"],
+                    "relative_day": step["day"],
+                    "scheduled_date": step_date,
+                    "is_workday": is_workday(step_date),
+                    "date_str": step_date.strftime("%Y-%m-%d"),
+                    "original_date": step_date.strftime("%Y-%m-%d"),
+                    "was_adjusted": False
+                })
         
         # 计算实验结束日期
         end_date = max(step["scheduled_date"] for step in schedule_steps)
@@ -85,6 +160,7 @@ class ExperimentScheduler:
                     daily_schedule[date_key] = []
                 
                 daily_schedule[date_key].append({
+                    "exp_id": exp["exp_id"],
                     "sample_batch": exp["sample_batch"],
                     "method_name": exp["method_name"],
                     "step_name": step["step_name"],
@@ -115,15 +191,16 @@ class ExperimentScheduler:
         for exp in experiments:
             for step in exp["steps"]:
                 if step["scheduled_date"] <= target_date and step["scheduled_date"] >= today:
-                    upcoming.append({
-                        "sample_batch": exp["sample_batch"],
-                        "method_name": exp["method_name"],
-                        "step_name": step["step_name"],
-                        "description": step["description"],
-                        "scheduled_date": step["scheduled_date"],
-                        "days_until": (step["scheduled_date"] - today).days,
-                        "notes": exp["notes"]
-                    })
+                                    upcoming.append({
+                    "exp_id": exp["exp_id"],
+                    "sample_batch": exp["sample_batch"],
+                    "method_name": exp["method_name"],
+                    "step_name": step["step_name"],
+                    "description": step["description"],
+                    "scheduled_date": step["scheduled_date"],
+                    "days_until": (step["scheduled_date"] - today).days,
+                    "notes": exp["notes"]
+                })
         
         # 按日期排序
         upcoming.sort(key=lambda x: x["scheduled_date"])
@@ -225,3 +302,29 @@ class ExperimentScheduler:
             })
         
         return summary
+    
+    def validate_exp_id(self, exp_id: int, existing_experiments: List[Dict[str, Any]], allow_duplicate: bool = False) -> tuple[bool, str]:
+        """
+        验证实验序号
+        
+        Args:
+            exp_id: 实验序号
+            existing_experiments: 现有实验列表
+            allow_duplicate: 是否允许重复的实验序号（用于一个实验序号下多个批号的情况）
+        
+        Returns:
+            (是否有效, 错误信息)
+        """
+        if exp_id <= 0:
+            return False, "实验序号必须大于0"
+        
+        # 如果允许重复，只检查序号格式
+        if allow_duplicate:
+            return True, "实验序号验证通过（允许重复）"
+        
+        # 检查是否已存在
+        for exp in existing_experiments:
+            if exp.get('exp_id') == exp_id:
+                return False, f"实验序号 {exp_id} 已存在，请使用其他序号"
+        
+        return True, "实验序号验证通过"
