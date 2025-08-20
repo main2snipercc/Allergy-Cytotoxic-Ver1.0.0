@@ -76,6 +76,11 @@ allergy-cytotoxic/
 │   └── archive/            # 归档数据目录
 ├── pyproject.toml       # 项目配置
 ├── requirements.txt     # 依赖包列表
+├── start.json           # PM2配置文件
+├── pm2_start.sh         # PM2启动脚本
+├── start.sh             # 完整部署脚本
+├── deploy.sh            # 一键部署脚本
+├── quick_start.sh       # 快速启动脚本
 └── README.md           # 项目说明
 ```
 
@@ -85,7 +90,7 @@ allergy-cytotoxic/
 - Python 3.11+
 - uv包管理器
 
-### 安装步骤
+### 本地开发运行
 
 1. **克隆项目**
 ```bash
@@ -105,6 +110,48 @@ uv run streamlit run app.py
 
 4. **访问应用**
 打开浏览器访问: http://localhost:8501
+
+### PM2生产环境部署
+
+#### 一键部署（推荐）
+```bash
+# 给脚本添加执行权限
+chmod +x *.sh
+
+# 一键部署（包含环境检查、安装、配置、启动）
+./deploy.sh
+```
+
+#### 分步部署
+```bash
+# 1. 环境配置和PM2启动
+./start.sh
+
+# 2. 或者只启动应用（需要先配置好环境）
+./pm2_start.sh
+```
+
+#### PM2管理命令
+```bash
+# 查看状态
+pm2 status
+
+# 查看日志
+pm2 logs allergy-cytotoxic
+
+# 重启应用
+pm2 restart allergy-cytotoxic
+
+# 停止应用
+pm2 stop allergy-cytotoxic
+
+# 删除应用
+pm2 delete allergy-cytotoxic
+```
+
+#### 部署后访问
+- **本地访问**: http://localhost:8501
+- **局域网访问**: http://[服务器IP]:8501
 
 ## 使用说明
 
@@ -203,6 +250,12 @@ CYTOTOXIC_METHODS = {
    - 使用"强制搜索归档数据"选项
    - 确认查询条件是否合理
 
+5. **PM2部署失败**
+   - 检查脚本执行权限: `chmod +x *.sh`
+   - 确认系统环境: Python 3.11+, Node.js, PM2
+   - 查看PM2日志: `pm2 logs allergy-cytotoxic`
+   - 检查端口占用: `sudo netstat -tlnp | grep 8501`
+
 ## 更新日志
 
 ### v1.0.0 (2025-01-14)
@@ -218,6 +271,13 @@ CYTOTOXIC_METHODS = {
 - 改进最近实验展示（按序号聚合）
 - 增强查询筛选功能
 - 支持强制搜索归档数据
+
+### v1.2.0 (2025-01-14)
+- 新增PM2生产环境部署支持
+- 提供一键部署脚本
+- 支持自动环境检查和依赖安装
+- 集成PM2进程管理和监控
+- 支持开机自启和日志管理
 
 ## 贡献指南
 
