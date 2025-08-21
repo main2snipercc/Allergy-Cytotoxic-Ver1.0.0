@@ -64,7 +64,8 @@ DEFAULT_SETTINGS = {
         "enabled": False,
         "webhook_url": "",
         "push_time": "08:00",
-        "last_push_date": ""
+        "last_push_date": "",
+        "last_push_time": ""
     },
     "display": {
         "show_weekends": False,
@@ -135,22 +136,41 @@ def get_notification_settings():
 
 
 def update_notification_settings(enabled=None, webhook_url=None, push_time=None, 
-                               last_push_date=None):
+                               last_push_date=None, last_push_time=None):
     """更新通知设置"""
-    settings = load_settings()
-    notification = settings.get("notification", DEFAULT_SETTINGS["notification"].copy())
-    
-    if enabled is not None:
-        notification["enabled"] = enabled
-    if webhook_url is not None:
-        notification["webhook_url"] = webhook_url
-    if push_time is not None:
-        notification["push_time"] = push_time
-    if last_push_date is not None:
-        notification["last_push_date"] = last_push_date
-    
-    settings["notification"] = notification
-    return save_settings(settings)
+    try:
+        print(f"🔧 update_notification_settings 调试信息：")
+        print(f"  参数: enabled={enabled}, webhook_url={webhook_url}, push_time={push_time}")
+        print(f"  参数: last_push_date={last_push_date}, last_push_time={last_push_time}")
+        
+        settings = load_settings()
+        print(f"  settings 加载成功")
+        
+        notification = settings.get("notification", DEFAULT_SETTINGS["notification"].copy())
+        print(f"  notification 获取成功: {notification}")
+        
+        if enabled is not None:
+            notification["enabled"] = enabled
+        if webhook_url is not None:
+            notification["webhook_url"] = webhook_url
+        if push_time is not None:
+            notification["push_time"] = push_time
+        if last_push_date is not None:
+            notification["last_push_date"] = last_push_date
+        if last_push_time is not None:
+            notification["last_push_time"] = last_push_time
+        
+        print(f"  notification 更新后: {notification}")
+        
+        settings["notification"] = notification
+        result = save_settings(settings)
+        print(f"  save_settings 结果: {result}")
+        return result
+    except Exception as e:
+        print(f"❌ update_notification_settings 异常: {e}")
+        import traceback
+        print(traceback.format_exc())
+        raise
 
 
 def get_display_settings():

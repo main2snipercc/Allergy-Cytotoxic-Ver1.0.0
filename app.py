@@ -7,6 +7,7 @@ from pathlib import Path
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import time
 
 # 导入自定义模块
 from config.settings import (
@@ -1578,6 +1579,9 @@ def render_notification_settings():
     
     settings = get_notification_settings()
     
+    # 明确声明webhook_url变量，避免作用域问题
+    webhook_url = ""
+    
     # 智能Webhook配置显示（在表单外部）
     has_webhook = settings["webhook_url"] and settings["webhook_url"].strip()
     
@@ -1671,8 +1675,8 @@ def render_notification_settings():
         with col1:
             submitted = st.form_submit_button("保存设置")
             if submitted:
-                # 获取当前的webhook地址
-                current_webhook = webhook_url if 'webhook_url' in locals() and webhook_url and webhook_url.strip() else settings["webhook_url"]
+                # 获取当前的webhook地址（使用更安全的方法）
+                current_webhook = webhook_url if webhook_url and webhook_url.strip() else settings["webhook_url"]
                 
                 # 验证webhook地址
                 if not has_webhook and (not current_webhook or not current_webhook.strip()):
@@ -1688,53 +1692,92 @@ def render_notification_settings():
                     return
                 
                 # 保存设置
-                success = update_notification_settings(
-                    enabled=enabled,
-                    webhook_url=current_webhook,
-                    push_time=validated_time
-                )
+                try:
+                    print(f"🔧 调试信息：")
+                    print(f"  enabled: {enabled}")
+                    print(f"  current_webhook: {current_webhook}")
+                    print(f"  validated_time: {validated_time}")
+                    
+                    success = update_notification_settings(
+                        enabled=enabled,
+                        webhook_url=current_webhook,
+                        push_time=validated_time
+                    )
+                    print(f"  保存结果: {success}")
+                except Exception as e:
+                    print(f"❌ 保存设置时出错: {e}")
+                    import traceback
+                    print(traceback.format_exc())
+                    st.error(f"保存设置失败: {e}")
+                    return
                 
                 if success:
                     st.success("设置已保存")
                     
-                    # 自动启动或重启调度器
-                    try:
-                        from utils.scheduler import is_scheduler_running, start_notification_scheduler, stop_notification_scheduler
-                        from utils.calendar_utils import parse_date, is_workday, get_holiday_info
-                        
-                        # 如果通知已启用且有webhook，启动调度器
-                        if enabled and current_webhook and current_webhook.strip():
-                            # 先停止现有调度器（如果正在运行）
-                            if is_scheduler_running():
-                                stop_notification_scheduler()
-                                print("🔄 停止现有调度器")
+                    # 检查推送时间是否被修改
+                    if validated_time != settings["push_time"]:
+                        try:
+                            from utils.scheduler import is_scheduler_running, force_reset_scheduler
                             
-                            # 启动新调度器
-                            start_notification_scheduler(
-                                st.session_state.experiments,
-                                parse_date,
-                                is_workday,
-                                get_holiday_info
+                            print(f"🔄 检测到推送时间变更: {settings['push_time']} -> {validated_time}")
+                            
+                            # 重置推送记录，允许按照新时间重新推送
+                            update_notification_settings(
+                                last_push_date="",
+                                last_push_time=""
                             )
-                            st.session_state.scheduler_started = True
-                            st.success("✅ 设置已保存，调度器已自动启动")
-                            print("✅ 调度器已自动启动")
-                        else:
-                            # 如果通知被禁用，停止调度器
+                            
                             if is_scheduler_running():
-                                stop_notification_scheduler()
-                                st.session_state.scheduler_started = False
-                                st.info("ℹ️ 通知已禁用，调度器已停止")
-                                print("ℹ️ 调度器已停止")
+                                # 如果调度器正在运行，强制重置状态
+                                force_reset_scheduler()
+                                st.info("🔄 检测到推送时间变更，已重置调度器状态和推送记录")
                             else:
-                                st.info("ℹ️ 通知已禁用")
-                        
-                        # 刷新页面显示最新状态
-                        st.rerun()
-                        
-                    except Exception as e:
-                        st.warning(f"⚠️ 设置已保存，但调度器启动失败: {e}")
-                        print(f"❌ 调度器启动失败: {e}")
+                                st.info("🔄 检测到推送时间变更，已重置推送记录")
+                        except Exception as e:
+                            print(f"检查时间变更失败: {e}")
+                    
+                                            # 智能管理调度器状态
+                        try:
+                            from utils.scheduler import SchedulerManager
+                            from utils.calendar_utils import parse_date, is_workday, get_holiday_info
+                            
+                            # 检查时间是否变更，需要重启
+                            force_restart = (validated_time != settings["push_time"])
+                            
+                            # 如果通知已启用且有webhook，启动调度器
+                            if enabled and current_webhook and current_webhook.strip():
+                                success = SchedulerManager.safe_start_scheduler(
+                                    st.session_state.experiments,
+                                    parse_date,
+                                    is_workday,
+                                    get_holiday_info,
+                                    force_restart=force_restart
+                                )
+                                
+                                st.session_state.scheduler_started = success
+                                if success:
+                                    if force_restart:
+                                        st.success("✅ 设置已保存，调度器已重启，将在设定时间自动推送")
+                                    else:
+                                        st.success("✅ 设置已保存，调度器正在运行")
+                                else:
+                                    st.warning("⚠️ 设置已保存，但调度器启动失败")
+                            else:
+                                # 如果通知被禁用，停止调度器
+                                if SchedulerManager.get_scheduler_status():
+                                    SchedulerManager.safe_stop_scheduler()
+                                    st.session_state.scheduler_started = False
+                                    st.info("ℹ️ 通知已禁用，调度器已停止")
+                                else:
+                                    st.session_state.scheduler_started = False
+                                    st.info("ℹ️ 通知已禁用")
+                            
+                            # 刷新页面显示最新状态
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.warning(f"⚠️ 设置已保存，但调度器管理失败: {e}")
+                            print(f"❌ 调度器管理失败: {e}")
                 else:
                     st.error("保存设置失败")
         
@@ -1746,8 +1789,8 @@ def render_notification_settings():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔗 测试连接", type="secondary"):
-            # 获取当前的webhook配置
-            current_webhook = webhook_url if 'webhook_url' in locals() and webhook_url and webhook_url.strip() else settings["webhook_url"]
+            # 获取当前的webhook配置（使用更安全的方法）
+            current_webhook = webhook_url if webhook_url and webhook_url.strip() else settings["webhook_url"]
             
             if current_webhook and current_webhook.strip():
                 try:
@@ -1769,41 +1812,62 @@ def render_notification_settings():
     
     with col1:
         if st.button("启动调度器"):
-            from utils.scheduler import is_scheduler_running
-            if not is_scheduler_running():
-                start_notification_scheduler(st.session_state.experiments)
-                st.session_state.scheduler_started = True
+            from utils.scheduler import SchedulerManager
+            from utils.calendar_utils import parse_date, is_workday, get_holiday_info
+            
+            success = SchedulerManager.safe_start_scheduler(
+                st.session_state.experiments,
+                parse_date,
+                is_workday,
+                get_holiday_info
+            )
+            
+            st.session_state.scheduler_started = success
+            if success:
                 st.success("调度器已启动")
-                st.rerun()
             else:
-                st.info("调度器已在运行中")
+                st.warning("调度器启动失败或已在运行中")
+            st.rerun()
     
     with col2:
         if st.button("停止调度器"):
-            from utils.scheduler import is_scheduler_running
-            if is_scheduler_running():
-                stop_notification_scheduler()
-                st.session_state.scheduler_started = False
+            from utils.scheduler import SchedulerManager
+            
+            success = SchedulerManager.safe_stop_scheduler()
+            st.session_state.scheduler_started = False
+            
+            if success:
                 st.success("调度器已停止")
-                st.rerun()
             else:
-                st.info("调度器未在运行")
+                st.warning("调度器停止失败或未在运行")
+            st.rerun()
     
     with col3:
         if st.button("📤 发送今日实验内容", type="primary"):
             if st.session_state.experiments:
-                success = send_manual_notification("daily")
-                if success:
-                    st.success("✅ 今日实验内容已发送成功")
-                else:
-                    st.error("❌ 发送失败，请检查网络连接和webhook配置")
+                try:
+                    from utils.scheduler import _scheduler
+                    # 确保调度器有最新的实验数据
+                    _scheduler.update_experiments(st.session_state.experiments)
+                    success = _scheduler.send_manual_notification("daily")
+                    if success:
+                        st.success("✅ 手动推送成功 - 随时可用，不影响自动推送")
+                    else:
+                        st.error("❌ 发送失败，请检查网络连接和webhook配置")
+                except Exception as e:
+                    st.error(f"❌ 发送失败: {e}")
             else:
                 st.warning("⚠️ 暂无实验数据可发送")
     
     # 显示调度器状态
-    from utils.scheduler import is_scheduler_running
-    actual_scheduler_status = is_scheduler_running()
+    from utils.scheduler import SchedulerManager
+    actual_scheduler_status = SchedulerManager.get_scheduler_status()
     status = "运行中" if actual_scheduler_status else "已停止"
+    
+    # 同步状态
+    if st.session_state.scheduler_started != actual_scheduler_status:
+        st.session_state.scheduler_started = actual_scheduler_status
+    
     st.info(f"调度器状态: {status}")
 
 def main():
@@ -1815,55 +1879,45 @@ def main():
     if not st.session_state.experiments:
         st.session_state.experiments = load_experiments()
     
-    # 自动启动调度器（如果配置正确）
+    # 统一的调度器初始化逻辑（只在第一次加载时执行）
     if 'scheduler_initialized' not in st.session_state:
         st.session_state.scheduler_initialized = True
         
-        # 检查通知设置并自动启动调度器
-        notification_settings = get_notification_settings()
-        if notification_settings["enabled"] and notification_settings["webhook_url"]:
-            try:
-                # 导入必要的函数
-                from utils.calendar_utils import parse_date, is_workday, get_holiday_info
-                
-                start_notification_scheduler(
+        try:
+            # 使用调度器管理器安全启动
+            from utils.scheduler import SchedulerManager
+            from utils.calendar_utils import parse_date, is_workday, get_holiday_info
+            
+            # 检查是否应该自动启动
+            if SchedulerManager.should_auto_start():
+                success = SchedulerManager.safe_start_scheduler(
                     st.session_state.experiments,
                     parse_date,
                     is_workday,
                     get_holiday_info
                 )
-                st.session_state.scheduler_started = True
-                print("✅ 调度器已自动启动")
-            except Exception as e:
-                print(f"❌ 调度器自动启动失败: {e}")
+                st.session_state.scheduler_started = success
+                if success:
+                    print("✅ 调度器已自动启动")
+                else:
+                    print("⚠️ 调度器自动启动失败")
+            else:
                 st.session_state.scheduler_started = False
-    
-    # 恢复调度器状态（页面刷新后自动恢复）
-    if 'scheduler_restored' not in st.session_state:
-        from utils.scheduler import restore_scheduler_state, start_notification_scheduler, is_scheduler_running
-        from utils.calendar_utils import parse_date, is_workday, get_holiday_info
-        
-        # 检查配置文件中调度器是否应该运行
-        if restore_scheduler_state():
-            # 如果配置文件中显示调度器应该运行，则启动它
-            start_notification_scheduler(
-                st.session_state.experiments,
-                parse_date,
-                is_workday,
-                get_holiday_info
-            )
-            st.session_state.scheduler_started = True
-            st.session_state.scheduler_restored = True
-        else:
+                print("ℹ️ 不满足自动启动条件，调度器未启动")
+                
+        except Exception as e:
+            print(f"❌ 调度器初始化失败: {e}")
             st.session_state.scheduler_started = False
-            st.session_state.scheduler_restored = True
     
     # 确保session_state与真实状态同步
-    if 'scheduler_restored' in st.session_state:
-        from utils.scheduler import is_scheduler_running
-        actual_status = is_scheduler_running()
+    try:
+        from utils.scheduler import SchedulerManager
+        actual_status = SchedulerManager.get_scheduler_status()
         if st.session_state.scheduler_started != actual_status:
             st.session_state.scheduler_started = actual_status
+            print(f"🔄 同步调度器状态: {actual_status}")
+    except Exception as e:
+        print(f"❌ 状态同步失败: {e}")
     
     # 侧边栏
     with st.sidebar:
@@ -2083,8 +2137,8 @@ def main():
             st.info(f"数据文件: {EXPERIMENTS_FILE}")
             
             # 显示真正的调度器状态
-            from utils.scheduler import is_scheduler_running
-            actual_scheduler_status = is_scheduler_running()
+            from utils.scheduler import SchedulerManager
+            actual_scheduler_status = SchedulerManager.get_scheduler_status()
             st.info(f"调度器状态: {'运行中' if actual_scheduler_status else '已停止'}")
             
             # 数据归档统计
