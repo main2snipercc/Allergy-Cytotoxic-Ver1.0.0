@@ -1754,6 +1754,21 @@ def main():
     if not st.session_state.experiments:
         st.session_state.experiments = load_experiments()
     
+    # 自动启动调度器（如果配置正确）
+    if 'scheduler_initialized' not in st.session_state:
+        st.session_state.scheduler_initialized = True
+        
+        # 检查通知设置并自动启动调度器
+        notification_settings = get_notification_settings()
+        if notification_settings["enabled"] and notification_settings["webhook_url"]:
+            try:
+                start_notification_scheduler(st.session_state.experiments)
+                st.session_state.scheduler_started = True
+                print("✅ 调度器已自动启动")
+            except Exception as e:
+                print(f"❌ 调度器自动启动失败: {e}")
+                st.session_state.scheduler_started = False
+    
     # 恢复调度器状态（页面刷新后自动恢复）
     if 'scheduler_restored' not in st.session_state:
         from utils.scheduler import restore_scheduler_state, start_notification_scheduler, is_scheduler_running

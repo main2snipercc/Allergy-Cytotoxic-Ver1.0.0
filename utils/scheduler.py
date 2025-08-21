@@ -195,5 +195,7 @@ def send_manual_notification(notification_type: str = "daily"):
 
 def restore_scheduler_state():
     """从配置文件恢复调度器状态"""
-    from config.settings import is_scheduler_enabled
-    return is_scheduler_enabled()
+    # 直接检查通知设置，如果启用就返回True
+    from config.settings import get_notification_settings
+    settings = get_notification_settings()
+    return settings["enabled"] and bool(settings["webhook_url"])
