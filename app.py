@@ -1648,28 +1648,50 @@ def render_notification_settings():
     with st.form("notification_settings"):
         enabled = st.checkbox("启用通知", value=settings["enabled"])
         
-        push_time = st.time_input(
+        # 使用文本输入框，允许自由设置时间
+        push_time_str = st.text_input(
             "每日推送时间",
-            value=datetime.strptime(settings["push_time"], "%H:%M").time()
+            value=settings["push_time"],
+            placeholder="08:00",
+            help="请输入24小时制时间，格式：HH:MM（如：08:00、14:30、23:45）"
         )
         
-
+        # 时间格式验证提示
+        if push_time_str:
+            try:
+                # 验证时间格式
+                test_time = datetime.strptime(push_time_str, "%H:%M")
+                st.success(f"✅ 时间格式正确：{push_time_str}")
+            except ValueError:
+                st.error("❌ 时间格式错误，请使用 HH:MM 格式（如：08:00）")
+                push_time_str = settings["push_time"]  # 使用原值
         
         col1, col2 = st.columns(2)
         
         with col1:
             submitted = st.form_submit_button("保存设置")
             if submitted:
+                # 获取当前的webhook地址
+                current_webhook = webhook_url if 'webhook_url' in locals() and webhook_url and webhook_url.strip() else settings["webhook_url"]
+                
                 # 验证webhook地址
-                if not has_webhook and (not webhook_url or not webhook_url.strip()):
+                if not has_webhook and (not current_webhook or not current_webhook.strip()):
                     st.error("请先配置Webhook地址")
+                    return
+                
+                # 验证时间格式
+                try:
+                    test_time = datetime.strptime(push_time_str, "%H:%M")
+                    validated_time = push_time_str
+                except ValueError:
+                    st.error("❌ 时间格式错误，请使用 HH:MM 格式（如：08:00）")
                     return
                 
                 # 保存设置
                 success = update_notification_settings(
                     enabled=enabled,
-                    webhook_url=webhook_url if webhook_url and webhook_url.strip() else settings["webhook_url"],
-                    push_time=push_time.strftime("%H:%M")
+                    webhook_url=current_webhook,
+                    push_time=validated_time
                 )
                 
                 if success:
@@ -1681,7 +1703,7 @@ def render_notification_settings():
                         from utils.calendar_utils import parse_date, is_workday, get_holiday_info
                         
                         # 如果通知已启用且有webhook，启动调度器
-                        if enabled and (webhook_url and webhook_url.strip() or settings["webhook_url"]):
+                        if enabled and current_webhook and current_webhook.strip():
                             # 先停止现有调度器（如果正在运行）
                             if is_scheduler_running():
                                 stop_notification_scheduler()
