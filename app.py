@@ -1674,6 +1674,45 @@ def render_notification_settings():
                 
                 if success:
                     st.success("设置已保存")
+                    
+                    # 自动启动或重启调度器
+                    try:
+                        from utils.scheduler import is_scheduler_running, start_notification_scheduler, stop_notification_scheduler
+                        from utils.calendar_utils import parse_date, is_workday, get_holiday_info
+                        
+                        # 如果通知已启用且有webhook，启动调度器
+                        if enabled and (webhook_url and webhook_url.strip() or settings["webhook_url"]):
+                            # 先停止现有调度器（如果正在运行）
+                            if is_scheduler_running():
+                                stop_notification_scheduler()
+                                print("🔄 停止现有调度器")
+                            
+                            # 启动新调度器
+                            start_notification_scheduler(
+                                st.session_state.experiments,
+                                parse_date,
+                                is_workday,
+                                get_holiday_info
+                            )
+                            st.session_state.scheduler_started = True
+                            st.success("✅ 设置已保存，调度器已自动启动")
+                            print("✅ 调度器已自动启动")
+                        else:
+                            # 如果通知被禁用，停止调度器
+                            if is_scheduler_running():
+                                stop_notification_scheduler()
+                                st.session_state.scheduler_started = False
+                                st.info("ℹ️ 通知已禁用，调度器已停止")
+                                print("ℹ️ 调度器已停止")
+                            else:
+                                st.info("ℹ️ 通知已禁用")
+                        
+                        # 刷新页面显示最新状态
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.warning(f"⚠️ 设置已保存，但调度器启动失败: {e}")
+                        print(f"❌ 调度器启动失败: {e}")
                 else:
                     st.error("保存设置失败")
         
