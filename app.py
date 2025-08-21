@@ -1762,7 +1762,15 @@ def main():
         notification_settings = get_notification_settings()
         if notification_settings["enabled"] and notification_settings["webhook_url"]:
             try:
-                start_notification_scheduler(st.session_state.experiments)
+                # 导入必要的函数
+                from utils.calendar_utils import parse_date, is_workday, get_holiday_info
+                
+                start_notification_scheduler(
+                    st.session_state.experiments,
+                    parse_date,
+                    is_workday,
+                    get_holiday_info
+                )
                 st.session_state.scheduler_started = True
                 print("✅ 调度器已自动启动")
             except Exception as e:
